@@ -1,0 +1,153 @@
+version: "3.7"
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - nginx-certificates:/etc/nginx/certs
+      - nginx-vhostd:/etc/nginx/vhost.d/
+      - nginx-htdocs:/usr/share/nginx/html
+      - nginx-dhparam:/etc/nginx/dhparam
+    labels:
+      - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy=true
+    ports:
+      - 80:80
+      - 443:443
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    environment:
+      - DEFAULT_EMAIL=fabio.montefuscolo@gmail.com
+    volumes:
+      - nginx-certificates:/etc/nginx/certs
+      - nginx-vhostd:/etc/nginx/vhost.d/
+      - nginx-htdocs:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  cyrus-master:
+    image: montefuscolo/cyrus-imapd
+    volumes:
+      - cyrus-run:/run
+    depends_on:
+      - cyrus-saslauthd
+      - rsyslogd
+    configs:
+      - source: cyrus_imapd_conf
+        target: /etc/imapd.conf
+        mode: 0644
+      - source: cyrus_cyrus_conf
+        target: /etc/cyrus.conf
+        mode: 0644
+
+  cyrus-saslauthd:
+    image: montefuscolo/cyrus-saslauthd
+    tty: true
+    stdin_open: true
+    volumes:
+      - cyrus-run:/run
+    depends_on:
+      - openldap
+    configs:
+      - source: cyrus_saslauth_conf
+        target: /etc/saslauthd.conf
+        mode: 0644
+    command: /usr/sbin/saslauthd -V -d -m /run/saslauthd -a ldap
+    depends_on:
+      - rsyslogd
+
+  rsyslogd:
+    image: montefuscolo/rsyslogd:latest
+    volumes:
+      - cyrus-run:/run
+    command: rsyslogd -n -f /etc/rsyslog.conf -i /run/rsyslogd.pid
+
+  postfix:
+    image: montefuscolo/postfix:latest
+    volumes:
+      - cyrus-run:/run
+      - nginx-certificates:/etc/nginx/certs
+    environment:
+      - POSTFIX_MYDOMAIN=example.com
+    configs:
+      - source: postfix_main_cf
+        target: /etc/postfix/main.cf
+        mode: 0644
+      - source: postfix_master_cf
+        target: /etc/postfix/master.cf
+        mode: 0644
+      - source: postfix_sasl2_smtpd
+        target: /etc/sasl2/smtpd.conf
+        mode: 0644
+    ports:
+      - 25:25
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    environment:
+      - PHPLDAPADMIN_LDAP_HOSTS=openldap
+      - PHPLDAPADMIN_HTTPS=false
+      - VIRTUAL_HOST=ldap.example.com
+      - LETSENCRYPT_HOST=ldap.example.com
+    volumes:
+      - phpldapadmin_src:/var/www/phpldapadmin
+    depends_on:
+      - openldap
+
+  openldap:
+    image: osixia/openldap:1.3.0
+    environment:
+      - LDAP_LOG_LEVEL=256
+      - LDAP_ORGANISATION=myorg@example.com
+      - LDAP_DOMAIN=example.com
+      - LDAP_BASE_DN=dc=example,dc=com
+      - LDAP_ADMIN_PASSWORD=the-ldap-admin-pwd
+      - LDAP_CONFIG_PASSWORD=the-ldap-config-pwd
+      - LDAP_READONLY_USER=false
+      - LDAP_RFC2307BIS_SCHEMA=false
+      - LDAP_BACKEND=mdb
+      - LDAP_TLS=true
+      - LDAP_TLS_CRT_FILENAME=ldap.crt
+      - LDAP_TLS_KEY_FILENAME=ldap.key
+      - LDAP_TLS_DH_PARAM_FILENAME=dhparam.pem
+      - LDAP_TLS_CA_CRT_FILENAME=ca.crt
+      - LDAP_TLS_ENFORCE=false
+      - LDAP_TLS_CIPHER_SUITE=SECURE256:-VERS-SSL3.0
+      - LDAP_TLS_PROTOCOL_MIN=3.1
+      - LDAP_TLS_VERIFY_CLIENT=demand
+      - LDAP_REPLICATION=false
+      - KEEP_EXISTING_CONFIG=false
+      - LDAP_REMOVE_CONFIG_AFTER_SETUP=true
+      - LDAP_SSL_HELPER_PREFIX=ldap
+    tty: true
+    stdin_open: true
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-conf:/etc/ldap/slapd.d
+      - ldap-cert:/container/service/slapd/assets/certs
+    hostname: "example.com"
+
+volumes:
+  nginx-certificates:
+  nginx-vhostd:
+  nginx-htdocs:
+  nginx-dhparam:
+  cyrus-run:
+  ldap-data:
+  ldap-conf:
+  ldap-cert:
+  phpldapadmin_src:
+
+configs:
+  cyrus_saslauth_conf:
+    file: ./cyrus_saslauthd.conf
+  cyrus_imapd_conf:
+    file: ./cyrus_imapd.conf
+  cyrus_cyrus_conf:
+    file: ./cyrus_cyrus.conf
+  postfix_main_cf:
+    file: ./postfix_main.conf
+  postfix_master_cf:
+    file: ./postfix_master.conf
+  postfix_sasl2_smtpd:
+    file: ./postfix_sasl2_smtpd.conf
