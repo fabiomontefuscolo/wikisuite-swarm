@@ -5,7 +5,7 @@ db_name=${TIKI_DB_NAME:-tikiwiki}
 db_user=${TIKI_DB_USER:-tiki}
 db_pass=${TIKI_DB_PASS:-wiki}
 
-cat > /etc/pam.d/imap <<EOF
+tee /etc/pam.d/{imap,smtp} <<EOF
 auth       sufficient    pam_mysql.so config_file=/etc/pam_mysql.conf
 account    sufficient    pam_mysql.so config_file=/etc/pam_mysql.conf
 session    sufficient    pam_mysql.so config_file=/etc/pam_mysql.conf
