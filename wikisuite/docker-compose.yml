@@ -1,0 +1,158 @@
+version: '3.7'
+
+services:
+  backend:
+    image: tikiwiki/tikiwiki:21.x
+    depends_on:
+      - db
+    environment:
+      - TIKI_DB_USER=tiki
+      - TIKI_DB_PASS=wiki
+      - TIKI_DB_NAME=tikiwiki
+      - TIKI_DB_HOST=db
+      - VIRTUAL_HOST=example.com
+      - LETSENCRYPT_HOST=example.com
+    volumes:
+      - tiki_files:/var/www/html/files
+      - tiki_img_trackers:/var/www/html/img/trackers
+      - tiki_mod_cache:/var/www/html/modules/cache
+      - tiki_temp:/var/www/html/temp
+      - tiki_sessions:/var/www/sessions
+      - tiki_img_wikiup:/var/www/html/img/wiki_up
+      - tiki_storage:/var/www/html/storage
+      - tiki_img_wiki:/var/www/html/img/wiki
+      - tiki_data:/var/www/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+    networks:
+      - internal
+      - global-services_default
+    configs:
+      - source: php_opcache
+        target: /usr/local/etc/php/conf.d/opcache.ini
+        mode: 0644
+      - source: tiki_init
+        target: /entrypoint.d/tiki-ini.sh
+        mode: 0700
+
+  db:
+    image: mariadb
+    environment:
+      - MYSQL_USER=tiki
+      - MYSQL_PASSWORD=wiki
+      - MYSQL_DATABASE=tikiwiki
+      - MYSQL_ROOT_PASSWORD=tikiwiki
+      - TERM=dumb
+    volumes:
+      - data:/var/lib/mysql
+    networks:
+      - internal
+
+  cyrus-master:
+    image: montefuscolo/cyrus-imapd
+    volumes:
+      - cyrus-run:/run
+    depends_on:
+      - cyrus-saslauthd
+      - rsyslogd
+    configs:
+      - source: cyrus_imapd_conf
+        target: /etc/imapd.conf
+        mode: 0644
+      - source: cyrus_cyrus_conf
+        target: /etc/cyrus.conf
+        mode: 0644
+    ports:
+      - 143:143
+      - 993:993
+
+  cyrus-saslauthd:
+    image: montefuscolo/cyrus-saslauthd
+    tty: true
+    stdin_open: true
+    volumes:
+      - cyrus-run:/run
+    environment:
+      - TIKI_DB_USER=tiki
+      - TIKI_DB_PASS=wiki
+      - TIKI_DB_NAME=tikiwiki
+      - TIKI_DB_HOST=db
+    configs:
+      - source: cyrus_saslauth_init
+        target: /entrypoint.d/saslauth-init.sh
+        mode: 0700
+    command: /usr/sbin/saslauthd -V -d -m /run/saslauthd -a pam
+    depends_on:
+      - db
+      - rsyslogd
+    networks:
+      - internal
+
+  rsyslogd:
+    image: montefuscolo/rsyslogd:latest
+    volumes:
+      - cyrus-run:/run
+    command: rsyslogd -n -f /etc/rsyslog.conf -i /run/rsyslogd.pid
+    networks:
+      - internal
+
+  postfix:
+    image: montefuscolo/postfix:latest
+    volumes:
+      - cyrus-run:/run
+      - nginx-certificates:/etc/nginx/certs
+    environment:
+      - POSTFIX_MYDOMAIN=example.com
+    configs:
+      - source: postfix_main_cf
+        target: /etc/postfix/main.cf
+        mode: 0644
+      - source: postfix_master_cf
+        target: /etc/postfix/master.cf
+        mode: 0644
+      - source: postfix_sasl2_smtpd
+        target: /etc/sasl2/smtpd.conf
+        mode: 0644
+    ports:
+      - 25:25
+    networks:
+      - internal
+
+volumes:
+  data:
+  tiki_files:
+  tiki_img_trackers:
+  tiki_mod_cache:
+  tiki_temp:
+  tiki_sessions:
+  tiki_img_wikiup:
+  tiki_storage:
+  tiki_img_wiki:
+  cyrus-run:
+  nginx-certificates:
+  tiki_data:
+
+networks:
+  internal:
+  global-services_default:
+    external: true
+
+configs:
+  php_opcache:
+    file: resources/config-php-opcache.ini
+  cyrus_saslauth_init:
+    file: ./resources/cyrus-saslauthd-init.sh
+  cyrus_imapd_conf:
+    file: ./resources/cyrus-imapd.conf
+  cyrus_cyrus_conf:
+    file: ./resources/cyrus-cyrus.conf
+  postfix_main_cf:
+    file: ./resources/postfix-main.conf
+  postfix_master_cf:
+    file: ./resources/postfix-master.conf
+  postfix_sasl2_smtpd:
+    file: ./resources/postfix-sasl2-smtpd.conf
+  tiki_init:
+    file: ./resources/tiki-init.sh
