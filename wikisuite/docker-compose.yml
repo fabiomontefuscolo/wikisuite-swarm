@@ -10,8 +10,8 @@ services:
       - TIKI_DB_PASS=wiki
       - TIKI_DB_NAME=tikiwiki
       - TIKI_DB_HOST=db
-      - VIRTUAL_HOST=example.com
-      - LETSENCRYPT_HOST=example.com
+      - VIRTUAL_HOST=wikisuite.email
+      - LETSENCRYPT_HOST=wikisuite.email
     volumes:
       - tiki_files:/var/www/html/files
       - tiki_img_trackers:/var/www/html/img/trackers
@@ -24,7 +24,7 @@ services:
       - tiki_data:/var/www/data
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 2
       endpoint_mode: dnsrr
     networks:
       - internal
@@ -34,7 +34,7 @@ services:
         target: /usr/local/etc/php/conf.d/opcache.ini
         mode: 0644
       - source: tiki_init
-        target: /entrypoint.d/tiki-ini.sh
+        target: /entrypoint.d/tiki-ini.php
         mode: 0700
 
   db:
@@ -52,6 +52,7 @@ services:
 
   cyrus-master:
     image: montefuscolo/cyrus-imapd
+    command: /usr/libexec/cyrus-imapd/cyrus-master -D -M /etc/cyrus.conf -C /etc/imapd.conf
     volumes:
       - cyrus-run:/run
     depends_on:
@@ -67,6 +68,8 @@ services:
     ports:
       - 143:143
       - 993:993
+    networks:
+      - internal
 
   cyrus-saslauthd:
     image: montefuscolo/cyrus-saslauthd
@@ -104,7 +107,7 @@ services:
       - cyrus-run:/run
       - nginx-certificates:/etc/nginx/certs
     environment:
-      - POSTFIX_MYDOMAIN=example.com
+      - POSTFIX_MYDOMAIN=wikisuite.email
     configs:
       - source: postfix_main_cf
         target: /etc/postfix/main.cf
@@ -155,4 +158,4 @@ configs:
   postfix_sasl2_smtpd:
     file: ./resources/postfix-sasl2-smtpd.conf
   tiki_init:
-    file: ./resources/tiki-init.sh
+    file: ./resources/tiki-init.php

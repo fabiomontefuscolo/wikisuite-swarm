@@ -16,11 +16,9 @@ users.host              = ${db_host}
 users.database          = ${db_name}
 users.db_user           = ${db_user}
 users.db_passwd         = ${db_pass}
-users.table             = users_users
-users.user_column       = login
-users.password_column   = hash
-users.password_crypt    = 1
-users.use_sha512        = 1
-users.rounds            = 2500
+users.table             = cypht_auth
+users.user_column       = user
+users.password_column   = password
+users.password_crypt    = 0
 verbose                 = 1
 EOF
