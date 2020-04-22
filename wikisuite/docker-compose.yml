@@ -30,12 +30,12 @@ services:
       - internal
       - global-services_default
     configs:
-      - source: php_opcache
-        target: /usr/local/etc/php/conf.d/opcache.ini
-        mode: 0644
       - source: tiki_init
         target: /entrypoint.d/tiki-ini.php
         mode: 0700
+      - source: php_opcache
+        target: /usr/local/etc/php/conf.d/opcache.ini
+        mode: 0644
 
   db:
     image: mariadb
@@ -123,6 +123,36 @@ services:
     networks:
       - internal
 
+  openfire:
+    image: montefuscolo/openfire
+    volumes:
+      - openfire-plugins:/opt/openfire/plugins
+    configs:
+      - source: openfire_init
+        target: /entrypoint.d/init.sh
+        mode: 0700
+    environment:
+      - OF_DB_USER=ofuser
+      - OF_DB_PASS=ofpass
+      - OF_DB_NAME=openfire
+      - OF_DB_HOST=db
+      - OF_PROP_FQDN=chat.wikisuite.email
+      - OF_PROP_XMPP_DOMAIN=wikisuite.email
+      - TIKI_DB_USER=tiki
+      - TIKI_DB_PASS=wiki
+      - TIKI_DB_NAME=tikiwiki
+      - TIKI_DB_HOST=db
+      - MYSQL_ROOT_PASSWORD=tikiwiki
+      - VIRTUAL_PORT=9090
+      - VIRTUAL_HOST=chat.wikisuite.email
+      - LETSENCRYPT_HOST=chat.wikisuite.email
+    ports:
+      - 5222:5222
+      - 5223:5223
+    networks:
+      - internal
+      - global-services_default
+
 volumes:
   data:
   tiki_files:
@@ -136,6 +166,7 @@ volumes:
   cyrus-run:
   nginx-certificates:
   tiki_data:
+  openfire-plugins:
 
 networks:
   internal:
@@ -159,3 +190,5 @@ configs:
     file: ./resources/postfix-sasl2-smtpd.conf
   tiki_init:
     file: ./resources/tiki-init.php
+  openfire_init:
+    file: ./resources/openfire-init.sh
