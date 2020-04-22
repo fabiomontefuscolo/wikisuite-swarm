@@ -10,6 +10,9 @@ services:
       - TIKI_DB_PASS=wiki
       - TIKI_DB_NAME=tikiwiki
       - TIKI_DB_HOST=db
+      - TIKI_OF_SECRET_KEY=this-will-overrided-later
+      - OF_PROP_FQDN=chat.wikisuite.email
+      - OF_PROP_XMPP_DOMAIN=wikisuite.email
       - VIRTUAL_HOST=wikisuite.email
       - LETSENCRYPT_HOST=wikisuite.email
     volumes:
@@ -127,6 +130,7 @@ services:
     image: montefuscolo/openfire
     volumes:
       - openfire-plugins:/opt/openfire/plugins
+      - nginx-vhostd:/etc/nginx/vhost.d 
     configs:
       - source: openfire_init
         target: /entrypoint.d/init.sh
@@ -142,6 +146,7 @@ services:
       - TIKI_DB_PASS=wiki
       - TIKI_DB_NAME=tikiwiki
       - TIKI_DB_HOST=db
+      - TIKI_OF_SECRET_KEY=this-will-overrided-later
       - MYSQL_ROOT_PASSWORD=tikiwiki
       - VIRTUAL_PORT=9090
       - VIRTUAL_HOST=chat.wikisuite.email
@@ -167,6 +172,9 @@ volumes:
   nginx-certificates:
   tiki_data:
   openfire-plugins:
+  nginx-vhostd:
+    external:
+      name: global-services_nginx-vhostd
 
 networks:
   internal:

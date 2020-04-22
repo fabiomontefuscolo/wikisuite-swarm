@@ -10,7 +10,7 @@ $db_name = getenv('TIKI_DB_NAME') ?: 'tikiwiki';
 $of_fqdn = getenv('OF_PROP_FQDN');
 $of_domain = getenv('OF_PROP_XMPP_DOMAIN');
 $converse_name = 'ConverseJS OAuth Client';
-$converse_id = 'org.tiki.rtc.internal-conversejs-id';
+$converse_id = 'org.tiki.rtc.internal-conversejs-id';   
 $converse_secret = getenv('TIKI_OF_SECRET_KEY');
 $converse_redirect = "https://${of_domain}/lib/xmpp/html/redirect.html";
 

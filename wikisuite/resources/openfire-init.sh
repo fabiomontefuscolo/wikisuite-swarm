@@ -144,3 +144,13 @@ cat > /opt/openfire/conf/openfire.xml <<EOF
   </xmpp>
 </jive>
 EOF
+
+tee /etc/nginx/vhost.d/${OF_PROP_FQDN} <<NGINX
+location ^~ /http-bind/ {
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection "Upgrade";
+  proxy_set_header Host \$host;
+  proxy_pass http://${HOSTNAME}:7070;
+}
+NGINX
